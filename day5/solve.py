@@ -1,5 +1,6 @@
 
 import timeit
+from heapq import heappush, heappop
 
 class Crange:
     def __init__(self, start, stop):
@@ -19,6 +20,15 @@ class Crange:
     def __contains__(self, num):
         return self.start <= num < self.stop
 
+def place_in_list(_list, _num):
+    n2 = len(_list)//2
+    if n2 == 0:
+        return 0 if _num < _list[0] else 1
+    if _num < _list[n2]:
+        return place_in_list(_list[:n2], _num)
+    else:
+        return n2 + place_in_list(_list[n2:], _num)
+
 class RangeTree:
     def __init__(self, ranges):
         self.mid = None
@@ -31,18 +41,22 @@ class RangeTree:
             self.children = (RangeTree(leftranges), RangeTree(rightranges))
         else:
             self.mid = float('inf')
-            self.children = (RangeLeaf(ranges[0]),)
-    def __contains__(self, num):
-        return num in self.children[num > self.mid]
+            self.range = ranges[0]
 
-class RangeLeaf:
-    def __init__(self, _range):
-        self.range = _range
-    def __contains__(self, num):
-        return num in self.range
+    def __contains__(self, numlist):
+        if self.mid == float('inf'):
+            return sum(num in self.range for num in numlist)
+        else:
+            split = place_in_list(numlist, self.mid)
+            left = numlist[:split]
+            right = numlist[split:]
+            ans = 0
+            ans += self.children[0].__contains__(left) if left else 0
+            ans += self.children[1].__contains__(right) if right else 0 
+            return ans
 
 def bisect(lrange, rrange):
-    assert(rrange.start > lrange.stop)
+    #assert(rrange.start > lrange.stop)
     return (lrange.stop + rrange.start)//2
 
 def solve(filename):
@@ -55,8 +69,8 @@ def solve(filename):
                 left, right = l.split('-')
                 range_list.append(Crange(int(left), int(right)+1))
             elif l:
-                candidates.append(int(l))
-
+                heappush(candidates, int(l))
+    
     range_list.sort()
     i = 0
     while i < len(range_list)-1:
@@ -66,19 +80,20 @@ def solve(filename):
             continue
         i += 1
 
+    sorted_candidates = list(heappop(candidates) for c in range(len(candidates)))
+
     node = RangeTree(range_list)
-    count = sum([c in node for c in candidates])
+    count = node.__contains__(sorted_candidates)
     nitems = sum([len(r) for r in range_list])
     return count, nitems
     
-
 if __name__=='__main__':
-    t = timeit.timeit(lambda: solve('test.txt'), number=1000)
-    t += timeit.timeit(lambda: solve('input.txt'), number=1000)
-    print(f"took {t}s")
     count, nitems = solve('test.txt')
     print(f"test.txt: There are {count} fresh ingredients")
     print(f"test.txt: There are {nitems} items")
     count, nitems = solve('input.txt')
     print(f"input.txt: There are {count} fresh ingredients")
     print(f"input.txt: There are {nitems} items")
+    t = timeit.timeit(lambda: solve('test.txt'), number=1000)
+    t += timeit.timeit(lambda: solve('input.txt'), number=1000)
+    print(f"took {t}s")
