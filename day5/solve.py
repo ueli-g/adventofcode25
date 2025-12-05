@@ -22,7 +22,6 @@ class Crange:
 class RangeTree:
     def __init__(self, ranges):
         self.mid = None
-        self.range = None
         self.children = ()
         n = len(ranges)
         if n > 1:
@@ -31,14 +30,16 @@ class RangeTree:
             self.mid = bisect(leftranges[-1], rightranges[0])
             self.children = (RangeTree(leftranges), RangeTree(rightranges))
         else:
-            self.range = ranges[0]
+            self.mid = float('inf')
+            self.children = (RangeLeaf(ranges[0]),)
     def __contains__(self, num):
-        if self.range:
-            return self.range.has(num)
-        elif num <= self.mid:
-            return num in self.children[0]
-        elif num > self.mid:
-            return num in self.children[1]
+        return num in self.children[num > self.mid]
+
+class RangeLeaf:
+    def __init__(self, _range):
+        self.range = _range
+    def __contains__(self, num):
+        return self.range.has(num)
 
 def bisect(lrange, rrange):
     assert(rrange.start > lrange.stop)
@@ -47,7 +48,6 @@ def bisect(lrange, rrange):
 def solve(filename):
     ranges = set()
     candidates = set()
-
     with open(filename) as infile:
         for line in infile.readlines():
             l = line.strip()
