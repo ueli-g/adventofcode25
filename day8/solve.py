@@ -1,117 +1,124 @@
 import math
+from scipy import spatial
+import numpy as np
 from heapq import heappush, heappop
 
 class Graph:
     def __init__(self, V):
         self.v = set(V)
-    def __repr__(self):
-        return f"Graph({self.v})"
     def __len__(self):
         return len(self.v)
     def __hash__(self):
         return hash(frozenset(self.v))
-    def __contains__(self,other):
-        return other in self.v
-    def distance(m,n):
-        return math.sqrt(sum((m-n)**2 for m,n in zip(m,n)))
-    #def min_distance_from(self, node):
-    #    return Graph.distance(node, self.v[0]) - len(self)
-    def closest_node_from(self, pos):
-        closest_distance = float('inf')
-        closest_node = None
-        for v in self.v:
-            if Graph.distance(pos,v) < closest_distance:
-                closest_node = v
-        return closest_node
+    def __gt__(self, other):
+        return len(self) > len(other)
     def merge(self, other):
         self.v = self.v.union(other.v)
         return self
 
-class HeapEntry:
-    def __init__(self, a, b, circuit):
-        self.a = a
-        self.b = b
-        self.circuit = circuit
-        self.cost = Graph.distance(self.a, self.b)
-    def __lt__(self, other):
-        return self.cost < other.cost
-    def __repr__(self):
-        return f"Edge {self.a} to {self.b}:{self.cost}"
+def parse_points(filename):
+    with open(filename) as infile:
+        lines = infile.readlines()
+        points = np.empty(shape=(len(lines),3), dtype=np.int64)
+        for nline, line in enumerate(lines):
+            pos = tuple(int(coord) for coord in line.strip().split(','))
+            points[nline] = pos
+            #circuit_map[pos] = graph
+    return points
 
-filename = 'test.txt'
+def distance(a,b):
+    return np.linalg.norm(a-b)
 
-nodes = list()
-circuits = list()
-circuit_map = dict()
+def edge_list_delaunay(points):
+    shortest = dict()
+    checked = set()
+    mlist = []
 
-with open(filename) as infile:
-    lines = infile.readlines()
-    for line in lines:
-        pos = tuple(int(coord) for coord in line.strip().split(','))
-        graph = Graph((pos,))
-        circuits.append(graph)
-        circuit_map[pos] = graph
-        nodes.append(pos)
+    delaunay = spatial.Delaunay(points, incremental=False)
+    assert(len(delaunay.coplanar) == 0)
 
-processed = set()
+    for ki, k1 in enumerate(delaunay.vertex_neighbor_vertices[0][:-1]):
+        k2 = delaunay.vertex_neighbor_vertices[0][ki+1]
+        for candidate in delaunay.vertex_neighbor_vertices[1][k1:k2]:
+            marker = frozenset((ki, int(candidate)))
+            if marker not in checked:
+                dist = distance(points[ki], points[candidate])
+                shortest[marker] = distance(points[ki], points[candidate])
+                heappush(mlist, (dist,marker))
+                checked.add(marker)
+    return mlist
 
-shortest = dict()
-for i, n in enumerate(nodes[:-1]):
-    candidate_cost = float('inf')
-    processed.add(n)
-    neighbour = None
-    #closest_circuit = None
-    for j,o in enumerate(nodes[i+1:]):
-        this_cost = Graph.distance(n,o)
-        pos_set = frozenset((n,o))
-        old_cost = shortest.get(pos_set, float('inf'))
-        if this_cost < old_cost:
-            shortest[pos_set] = this_cost
+def edge_list_brute(points):
+    shortest = dict()
+    checked = set()
+    mlist = []
 
+    for i, pi in enumerate(points[:-1]):
+        for j, pj in enumerate(points[i+1:]):
+            marker = (i, i+j+1)
+            if marker not in checked:
+                dist = distance(pi, pj)
+                heappush(mlist, (dist,marker))
+                checked.add(marker)
+        print(i)
+    return mlist
 
-heaplist = list()
-for k, v in shortest.items():
-    k0, k1 = list(k)
-    entry = HeapEntry(k0, k1, v)
-    heappush(heaplist, entry)
-    #for j, c in enumerate(circuits):
-    #    if c.min_distance_from(n) < candidate_cost:
-    #        #closest_node = c.closest_node_from(n)
-    #        #if n == closest_node:
-    #        #    continue
-    #        this_cost = Graph.distance(n,closest_node)
-    #        if this_cost < candidate_cost:
-    #            neighbour = closest_node
-    #            closest_circuit = c
-    #            candidate_cost = this_cost
-    #fs = frozenset((n,neighbour))
-    #if fs not in processed:
-    #    entry = HeapEntry(n, neighbour, closest_circuit)
-    #    heappush(heaplist, entry)
-    #processed.add(fs)
-print(i)
+def solve_a(filename, edge_count):
+    points = parse_points(filename)
+    mlist = edge_list_brute(points)
+    circuits = [Graph((pi,)) for pi in range(len(points))]
+    circuitmap = {pi:Graph((pi,)) for pi in range(len(points))}
 
-
-count = 0
-while count <= 10 and len(heaplist) > 0:
-    entry = heappop(heaplist)
-    a = entry.a
-    b = entry.b
-    g1 = circuit_map[a]
-    g2 = circuit_map[b]
-    if g1 != g2:
-        g1.merge(g2)
-        circuit_map[b] = g1
+    count = 0
+    while len(mlist) > 0 and count < edge_count:
+        cost, nodes = heappop(mlist)
+        m, n = list(nodes)
+        cm = circuitmap[m]
+        cn = circuitmap[n]
+        cm.merge(cn)
+        for c in cm.v:
+            circuitmap[c] = cm
         count += 1
 
+    graphs = list(set(circuitmap.values()))
+    graphs.sort()
+    asum = len(graphs[-1]) * len(graphs[-2]) * len(graphs[-3])
+    return asum
 
-    print(len(heaplist))    
-    print(entry)
+def solve_b(filename):
+    points = parse_points(filename)
+    mlist = edge_list_brute(points)
+    circuits = [Graph((pi,)) for pi in range(len(points))]
+    circuitmap = {pi:Graph((pi,)) for pi in range(len(points))}
 
+    count = 0
+    largest_circuit = 0
+    xprod = 0
+    while largest_circuit < len(points):
+        cost, nodes = heappop(mlist)
+        m, n = list(nodes)
+        
+        cm = circuitmap[m]
+        cn = circuitmap[n]
+        oldsize = max(len(cm), len(cn))
 
-vset = set(circuit_map.values())
+        cm.merge(cn)
+        for c in cm.v:
+            circuitmap[c] = cm
 
-lengths = [len(s) for s in vset]
-lengths.sort()
+        newsize = len(cm)
+        if newsize > largest_circuit:
+            print(f"New longest length at {newsize}")
+            print(f"Edge with cost {cost} between {points[m]} - {points[n]}")
+            largest_circuit = newsize
+            xprod = points[m][0] * points[n][0]
+        count += 1
+    return xprod
+
+sa = solve_a('test.txt', 10)
+sb = solve_b('test.txt')
+
+sa = solve_a('input.txt', 1000)
+sb = solve_b('input.txt')
 
 print()
