@@ -44,12 +44,14 @@ for v in vertices:
 xmin, ymin = np.min(vertices, 0)
 xmax, ymax = np.max(vertices, 0)
 
+
+
 class Node:
     def __init__(self, corners, edge_map, inside_map, _memo):
         xmin = min(corners[0][0], corners[1][0])
-        xmin = max(corners[0][0], corners[1][0])
+        xmax = max(corners[0][0], corners[1][0])
         ymin = min(corners[0][1], corners[1][1])
-        xmin = max(corners[0][1], corners[1][1])
+        ymax = max(corners[0][1], corners[1][1])
 
         self.min = (xmin, ymin)
         self.max = (xmax, ymax)
