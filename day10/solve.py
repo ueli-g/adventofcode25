@@ -136,30 +136,29 @@ def solve(filename):
         while len(MLIST) > 0:
             itcount += 1
             dist, count, state = heappop(MLIST) 
-            if count + m.state_min_distance(state) >= BEST:
+
+            astardist = count + m.state_min_distance(state)
+            if astardist >= BEST:
                 continue
 
             s = tuple(state)
             if s in DICT:
-                if DICT[s] < count:
+                if DICT[s] <= count:
                     continue
             DICT[s] = count
 
-            for ccount, cstate in m.yield_children(count, state):
-                c = tuple(cstate)
-                if c in DICT:
-                    if DICT[c] <= ccount:
-                        continue
-                DICT[c] = ccount
-                if ccount >= BEST:
-                    continue
-                if m.state_done(cstate):
-                    BEST = ccount
-                elif m.state_can_continue(cstate):
-                    astardist = ccount + m.state_min_distance(cstate)
-                    if astardist <= BEST:
-                        cost = m.state_distance(cstate)
-                        heappush(MLIST, (cost, ccount, cstate))
+            if m.state_done(state):
+                BEST = ccount
+            elif m.state_can_continue(state):
+                for ccount, cstate in m.yield_children(count, state):
+                    if m.state_can_continue(cstate):
+                        childstartdist = ccount + m.state_min_distance(cstate)
+                        if childstartdist < BEST:
+                            heappush(MLIST, (m.state_distance(cstate), ccount, cstate))
+
+            
+                
+                
 
         print(f"{m}: {BEST} took {itcount}")
         TOTSUM += BEST
