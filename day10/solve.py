@@ -125,7 +125,7 @@ def solve(filename):
     print(TOTSUM)
 
     TOTSUM = 0
-    for m in bmachines:
+    for im,m in enumerate(bmachines):
         DICT = dict()
         MLIST = []
 
