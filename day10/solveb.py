@@ -186,5 +186,5 @@ def solve(filename):
     print(totsum)
 
 if __name__ == '__main__':
-    solve('test.txt')
+#    solve('test.txt')
     solve('input.txt')
